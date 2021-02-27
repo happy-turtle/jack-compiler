@@ -1,8 +1,8 @@
 ﻿using System;
 
-namespace Jack_Compiler
+namespace JackCompiler
 {
-    class Program
+    class JackAnalyzer
     {
         static void Main(string[] args)
         {
