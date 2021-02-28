@@ -1,0 +1,7 @@
+namespace JackCompiler
+{
+    class CompilationEngine
+    {
+        
+    }
+}
