@@ -1,4 +1,5 @@
 using System.Xml;
+using System.Collections.Generic;
 
 namespace JackCompiler
 {
@@ -8,14 +9,16 @@ namespace JackCompiler
     class CompilationEngine
     {
         XmlDocument document;
+        List<Token> tokens;
 
         /// <summary>
         /// Creates a new compilation engine with the given input and output.
         /// The next routine called must be CompileClass.
         /// </summary>
-        public CompilationEngine()
+        public CompilationEngine(List<Token> tokenList)
         {
             document = new XmlDocument();
+            tokens = tokenList;
         }
 
         /// <summary>

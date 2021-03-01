@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace JackCompiler
 {
     /// <summary>
@@ -6,15 +9,37 @@ namespace JackCompiler
     /// </summary>
     class JackTokenizer
     {
-        string[] lines;
-        int currentLine = 0;
+        List<string> tokens;
+        int currentToken = 0;
+
+        readonly string[] keywords = { "class", "constructor", "function", "method", "field", "static",
+        "var", "int", "char", "boolean", "void", "true", "false", "null", "this", "let", "do", "if",
+        "else", "while", "return" };
+
+        readonly char[] symbols = { '{', '}', '(', ')', '[', ']', '.', ',', ';', '+', '-', '*', '/',
+        '&', '|', '<', '>', '=', '~' };
 
         /// <summary>
         /// Opens the input .jack file and gets ready to tokenize it.
         /// </summary>
         public JackTokenizer(string[] jackLines)
         {
-            lines = jackLines;
+            tokens = Tokenize(jackLines);            
+        }
+
+        List<string> Tokenize(string[] lines)
+        {
+            List<string> tokenized = new List<string>();
+            foreach(string line in lines)
+            {
+                string[] parts = line.Split(' ', (StringSplitOptions)3);
+                foreach(string part in parts)
+                {
+                    //TODO: split at symbols
+                    tokenized.Add(part);
+                }
+            }
+            return tokenized;
         }
 
         /// <summary>
@@ -22,13 +47,10 @@ namespace JackCompiler
         /// </summary>
         public bool HasMoreTokens()
         {            
-            if(lines == null || lines.Length <= 0)
-                return false;
-
-            if(currentLine < lines.Length)
+            if(currentToken < tokens.Count)
                 return true;
-
-            return false;
+            else
+                return false;
         }
 
         /// <summary>
@@ -38,7 +60,7 @@ namespace JackCompiler
         /// </summary>
         public void Advance()
         {
-            currentLine++;
+            currentToken++;
         }
 
         /// <summary>

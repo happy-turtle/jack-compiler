@@ -34,7 +34,7 @@ namespace JackCompiler
 
             if(attributes.HasFlag(FileAttributes.Directory))
             {
-                string[] files = Directory.GetFiles(args[0], "*.vm");
+                string[] files = Directory.GetFiles(args[0], "*.jack");
                 foreach(string filePath in files)
                 {
                     AnalyzeFile(filePath);
@@ -51,7 +51,7 @@ namespace JackCompiler
             string[] lines = new string[0];
             try
             {
-                lines = StripCommentsAndWhiteSpace(File.ReadAllLines(filePath));
+                lines = StripComments(File.ReadAllLines(filePath));
             }
             catch(Exception e)
             {
@@ -62,38 +62,40 @@ namespace JackCompiler
                 return;
 
             JackTokenizer tokenizer = new JackTokenizer(lines);
-            CompilationEngine compilationEngine = new CompilationEngine();
+            List<Token> tokens = new List<Token>();
 
             while(tokenizer.HasMoreTokens())
             {
                 TokenType tokenType = tokenizer.GetTokenType();
 
                 if(tokenType == TokenType.KEYWORD)
-                    tokenizer.GetKeyword();
+                    tokens.Add(new Token(TokenType.KEYWORD, tokenizer.GetKeyword()));
                 else if(tokenType == TokenType.IDENTIFIER)
-                    tokenizer.GetIdentifier();
+                    tokens.Add(new Token(TokenType.IDENTIFIER, tokenizer.GetIdentifier()));
                 else if(tokenType == TokenType.INT_CONST)
-                    tokenizer.GetIntVal();
+                    tokens.Add(new Token(TokenType.INT_CONST, tokenizer.GetIntVal()));
                 else if(tokenType == TokenType.STRING_CONST)
-                    tokenizer.GetStringVal();
+                    tokens.Add(new Token(TokenType.STRING_CONST, tokenizer.GetStringVal()));
                 else if(tokenType == TokenType.SYMBOL)
-                    tokenizer.GetSymbol();
+                    tokens.Add(new Token(TokenType.SYMBOL, tokenizer.GetSymbol()));
 
                 tokenizer.Advance();
             }
 
+            CompilationEngine compilationEngine = new CompilationEngine(tokens);
             compilationEngine.WriteXML(Path.GetFileNameWithoutExtension(filePath));
         }
 
-        private static string[] StripCommentsAndWhiteSpace(string[] lines)
+        private static string[] StripComments(string[] lines)
         {
             List<string> lineList = new List<string>();
             foreach (string line in lines)
             {
-                if (!line.TrimStart(' ').StartsWith("//") && !string.IsNullOrWhiteSpace(line))
+                if (!line.TrimStart(' ').StartsWith("//") && !string.IsNullOrWhiteSpace(line) 
+                && !line.TrimStart(' ').StartsWith("/*"))
                 {
                     string codeLine = line.Split("//")[0];
-                    lineList.Add(codeLine.Trim(' '));
+                    lineList.Add(codeLine);
                 }
             }
             return lineList.ToArray();
