@@ -1,3 +1,4 @@
+using System;
 using System.Xml;
 using System.Collections.Generic;
 
@@ -10,6 +11,7 @@ namespace JackCompiler
     {
         XmlDocument document;
         List<Token> tokens;
+        int current = 0;
 
         /// <summary>
         /// Creates a new compilation engine with the given input and output.
@@ -19,6 +21,7 @@ namespace JackCompiler
         {
             document = new XmlDocument();
             tokens = tokenList;
+            CompileClass();
         }
 
         /// <summary>

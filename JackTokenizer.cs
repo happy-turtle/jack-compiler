@@ -138,7 +138,7 @@ namespace JackCompiler
         /// </summary>
         public string GetStringVal()
         {
-            return tokens[currentToken];
+            return tokens[currentToken].Trim('"');
         }
     }
 }
