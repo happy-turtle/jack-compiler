@@ -83,7 +83,7 @@ namespace JackCompiler
             }
 
             CompilationEngine compilationEngine = new CompilationEngine(tokens);
-            compilationEngine.WriteXML(Path.GetFileNameWithoutExtension(filePath));
+            compilationEngine.WriteXML(filePath);
         }
 
         private static string[] StripComments(string[] lines)

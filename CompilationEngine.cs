@@ -123,9 +123,10 @@ namespace JackCompiler
         /// <param name="path">Complete file path without extension</param>
         public void WriteXML(string path)
         {
+            string xmlPath = path.Split('.')[0] + ".xml";
             XmlWriterSettings settings = new XmlWriterSettings();
             settings.Indent = true;
-            XmlWriter writer = XmlWriter.Create(path + ".xml", settings);
+            XmlWriter writer = XmlWriter.Create(xmlPath, settings);
             document.Save(writer);
         }
     }

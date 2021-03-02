@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 
 namespace JackCompiler
 {
@@ -12,34 +13,41 @@ namespace JackCompiler
         List<string> tokens;
         int currentToken = 0;
 
-        readonly string[] keywords = { "class", "constructor", "function", "method", "field", "static",
-        "var", "int", "char", "boolean", "void", "true", "false", "null", "this", "let", "do", "if",
-        "else", "while", "return" };
-
-        readonly char[] symbols = { '{', '}', '(', ')', '[', ']', '.', ',', ';', '+', '-', '*', '/',
-        '&', '|', '<', '>', '=', '~' };
+        //This matches the KEYWORD enum of the class Token, so we can use the matching id.
+        readonly string[] keywords = { "class", "method", "function", "constructor", "int", "boolean", "char", "void", 
+        "var", "static", "field", "let", "do", "if", "else", "while", "return", "true", "false", "null", "this" };
+        const string symbolReg = "[\\&\\*\\+\\(\\)\\.\\/\\,\\-\\]\\;\\~\\}\\|\\{\\>\\=\\[\\<]";
+        const string intReg = "[0-9]+";
+        const string strReg = "\"[^\"\n]*\"";
+        const string idReg = "[\\w_]+";
+        string keywordReg = "";
 
         /// <summary>
         /// Opens the input .jack file and gets ready to tokenize it.
         /// </summary>
         public JackTokenizer(string[] jackLines)
         {
-            tokens = Tokenize(jackLines);            
+            Tokenize(jackLines);            
         }
 
-        List<string> Tokenize(string[] lines)
+        void Tokenize(string[] lines)
         {
-            List<string> tokenized = new List<string>();
+            tokens = new List<string>();
+
+            //build regex pattern
+            keywordReg = "";
+            foreach (var keyword in keywords)
+                keywordReg += keyword + "|";
+            string pattern = keywordReg + symbolReg + "|" + intReg + "|" + strReg + "|" + idReg;
+            keywordReg = keywordReg.Remove(keywordReg.Length - 1);
+
             foreach(string line in lines)
             {
-                string[] parts = line.Split(' ', (StringSplitOptions)3);
-                foreach(string part in parts)
-                {
-                    //TODO: split at symbols
-                    tokenized.Add(part);
-                }
+                //find tokens
+                MatchCollection matches = Regex.Matches(line, pattern);
+                foreach(Match match in matches)
+                    tokens.Add(match.Value);
             }
-            return tokenized;
         }
 
         /// <summary>
@@ -68,7 +76,18 @@ namespace JackCompiler
         /// </summary>
         public TokenType GetTokenType()
         {
-            return TokenType.KEYWORD;
+            if(Regex.Match(tokens[currentToken], keywordReg).Success)
+                return TokenType.KEYWORD;
+            else if(Regex.Match(tokens[currentToken], symbolReg).Success)
+                return TokenType.SYMBOL;
+            else if(Regex.Match(tokens[currentToken], intReg).Success)
+                return TokenType.INT_CONST;
+            else if(Regex.Match(tokens[currentToken], strReg).Success)
+                return TokenType.STRING_CONST;
+            else if(Regex.Match(tokens[currentToken], idReg).Success)
+                return TokenType.IDENTIFIER;
+            else
+                throw new Exception("Unknown token");
         }
 
         /// <summary>
@@ -77,6 +96,12 @@ namespace JackCompiler
         /// </summary>
         public Keyword GetKeyword()
         {
+            string word = Regex.Match(tokens[currentToken], keywordReg).Value;
+            for(int i = 0; i < keywords.Length; i++)
+            {
+                if(keywords[i] == word)
+                    return (Keyword)i;
+            }
             return Keyword.NULL;
         }
 
@@ -86,7 +111,7 @@ namespace JackCompiler
         /// </summary>
         public char GetSymbol()
         {
-            return '0';
+            return tokens[currentToken].ToCharArray()[0];
         }
 
         /// <summary>
@@ -95,7 +120,7 @@ namespace JackCompiler
         /// </summary>
         public string GetIdentifier()
         {
-            return "";
+            return tokens[currentToken];
         }
 
         /// <summary>
@@ -104,7 +129,7 @@ namespace JackCompiler
         /// </summary>
         public int GetIntVal()
         {
-            return 0;
+            return int.Parse(tokens[currentToken]);
         }
 
         /// <summary>
@@ -113,7 +138,7 @@ namespace JackCompiler
         /// </summary>
         public string GetStringVal()
         {
-            return "";
+            return tokens[currentToken];
         }
     }
 }
