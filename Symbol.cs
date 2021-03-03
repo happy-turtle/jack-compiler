@@ -1,0 +1,24 @@
+namespace JackCompiler
+{
+    enum SymbolKind { STATIC, FIELD, ARG, VAR, NONE };
+
+    class Symbol
+    {
+
+        public string Type { get; private set; }
+        public SymbolKind Kind { get; private set; }
+        public int Index { get; private set; }
+
+        Symbol(string type, SymbolKind kind, int index)
+        {
+            this.Type = type;
+            this.Kind = kind;
+            this.Index = index;
+        }
+
+        public override string ToString()
+        {
+            return "Symbol(type=" + Type + "," + "kind=" + Kind + "," + "index=" + Index + ")";
+        }
+    }
+}

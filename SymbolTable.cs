@@ -1,14 +1,18 @@
+using System.Collections.Generic;
+
 namespace JackCompiler
 {
-    enum SymbolKind { STATIC, FIELD, ARG, VAR, NONE };
     class SymbolTable
-        {
+    {
+        Dictionary<string, Symbol> classSymbols = new Dictionary<string, Symbol>();
+        Dictionary<string, Symbol> subroutineSymbols;
+
         /// <summary>
         /// Starts a new subroutine scope.
         /// </summary>
         void StartSubroutine()
         {
-
+            subroutineSymbols = new Dictionary<string, Symbol>();
         }
 
         /// <summary>
@@ -33,7 +37,7 @@ namespace JackCompiler
 
         /// <summary>
         /// Returns the kind of the named identifier in the current scope.
-        /// If the identifier is unknown in the current scope , returns NONE.
+        /// If the identifier is unknown in the current scope return NONE.
         /// </summary>
         SymbolKind KindOf(string name)
         {
