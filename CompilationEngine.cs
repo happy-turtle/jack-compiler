@@ -227,14 +227,12 @@ namespace JackCompiler
             CompileStatements(root);
             //'}'
             AppendSymbol(root);
-            //else
+            //else'{'statements'}'
             if(current.Keyword == Keyword.ELSE)
             {
-                //'{'
+                AppendKeyword(root);
                 AppendSymbol(root);
-                //statements
                 CompileStatements(root);
-                //'}'
                 AppendSymbol(root);
             }            
         }
@@ -283,8 +281,11 @@ namespace JackCompiler
             XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "returnStatement", ""));
             //return
             AppendKeyword(root);
-            //expression
-            CompileExpression(root);
+            //expression?
+            if(!(current.Type == TokenType.SYMBOL && current.Symbol == ';'))
+            {
+                CompileExpression(root);
+            }
             //';'
             AppendSymbol(root);
         }
@@ -501,7 +502,6 @@ namespace JackCompiler
             XmlWriter writer = XmlWriter.Create(xmlPath, settings);
             try
             {
-                document.Save(Console.Out);
                 document.Save(writer);
             }
             catch(Exception e)
