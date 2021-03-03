@@ -92,7 +92,7 @@ namespace JackCompiler
             foreach (string line in lines)
             {
                 if (!line.TrimStart(' ').StartsWith("//") && !string.IsNullOrWhiteSpace(line) 
-                && !line.TrimStart(' ').StartsWith("/*"))
+                && !line.TrimStart(' ').StartsWith("/*") && !line.TrimStart(' ').StartsWith("*"))
                 {
                     string codeLine = line.Split("//")[0];
                     lineList.Add(codeLine);
