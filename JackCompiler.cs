@@ -12,7 +12,7 @@ namespace JackCompiler
     /// 2. Creates and uses a CompilationEngine and compiles the input JackTokenizer into XML structure.
     /// 3. Creates an output file named fileName.xml and writes XML structure into this file.
     /// </summary>
-    class JackAnalyzer
+    class JackCompiler
     {
         static void Main(string[] args)
         {            if (args.Length == 0)
