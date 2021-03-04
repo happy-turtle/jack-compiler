@@ -82,8 +82,10 @@ namespace JackCompiler
                 tokenizer.Advance();
             }
 
-            CompilationEngine compilationEngine = new CompilationEngine(tokens);
+            VMWriter writer = new VMWriter();
+            CompilationEngine compilationEngine = new CompilationEngine(tokens, writer);
             compilationEngine.WriteXML(filePath);
+            writer.Close(filePath);
         }
 
         private static string[] StripComments(string[] lines)

@@ -12,16 +12,18 @@ namespace JackCompiler
         XmlDocument document;
         List<Token> tokens;
         Token current;
+        VMWriter vmWriter;
 
         /// <summary>
         /// Creates a new compilation engine with the given input and output.
         /// The next routine called must be CompileClass.
         /// </summary>
-        public CompilationEngine(List<Token> tokenList)
+        public CompilationEngine(List<Token> tokenList, VMWriter writer)
         {
             document = new XmlDocument();
             tokens = tokenList;
             current = tokens[0];
+            vmWriter = writer;
             CompileClass();
         }
 

@@ -1,63 +1,78 @@
+using System;
+using System.IO;
+using System.Collections.Generic;
+
+
 namespace JackCompiler
 {
     enum Segment { CONST, ARG, LOCAL, STATIC, THIS, THAT, POINTER, TEMP };
     enum Command { ADD, SUB, NEG, EQ, GT, LT, AND, OR, NOT };
 
+    /// <summary>
+    /// Writes the virtual machine code to the output file.
+    /// </summary>
     class VMWriter
     {
-        VMWriter(string path)
-        {
+        List<string> vmCommands = new List<string>();
 
+        const string VMFileExtension = ".vm";
+
+        public void WritePush(Segment segment, int index)
+        {
+            vmCommands.Add("push " + Enum.GetName(typeof(Segment), segment).ToLower() + " " + index);
         }
 
-        void WritePush(Segment segment, int index)
+        public void WritePop(Segment segment, int index)
         {
-
+            vmCommands.Add("pop " + Enum.GetName(typeof(Segment), segment).ToLower() + " " + index);
         }
 
-        void WritePop(Segment segment, int index)
+        public void WriteArithmetic(Command command)
         {
-
+            vmCommands.Add(Enum.GetName(typeof(Command), command).ToLower());
         }
 
-        void WriteArithmetic(Command command)
+        public void WriteLabel(string label)
         {
-
+            vmCommands.Add("(" + label + ")");
         }
 
-        void WriteLabel(string label)
+        public void WriteGoto(string label)
         {
-
+            vmCommands.Add("goto " + label);
         }
 
-        void WriteGoto(string label)
+        public void WriteIf(string label)
         {
-
+            vmCommands.Add("if-goto " + label);
         }
 
-        void WriteIf(string label)
+        public void WriteCall(string name, int nArgs)
         {
-
+            vmCommands.Add("call " + name + " " + nArgs);
         }
 
-        void WriteCall(string name, int nArgs)
+        public void WriteFunction(string name, int nLocals)
         {
-
+            vmCommands.Add("function " + name + " " + nLocals);
         }
 
-        void WriteFunction(string name, int nLocals)
+        public void WriteReturn()
         {
-
+            vmCommands.Add("return");
         }
 
-        void WriteReturn()
+        public void Close(string path)
         {
-
-        }
-
-        void Close()
-        {
-            
+            try
+            {
+                string filePath = path.Split('.')[0] + VMFileExtension;
+                File.WriteAllLines(filePath, vmCommands);
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
         }
     }
 }
