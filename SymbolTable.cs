@@ -6,6 +6,13 @@ namespace JackCompiler
     {
         Dictionary<string, Symbol> classSymbols = new Dictionary<string, Symbol>();
         Dictionary<string, Symbol> subroutineSymbols;
+        Dictionary<SymbolKind, int> indices = new Dictionary<SymbolKind, int>()
+        {
+            { SymbolKind.ARG, 0 },
+            { SymbolKind.VAR, 0 },
+            { SymbolKind.STATIC, 0 },
+            { SymbolKind.FIELD, 0 }
+        };
 
         /// <summary>
         /// Starts a new subroutine scope.
@@ -13,6 +20,8 @@ namespace JackCompiler
         void StartSubroutine()
         {
             subroutineSymbols = new Dictionary<string, Symbol>();
+            indices[SymbolKind.ARG] = 0;
+            indices[SymbolKind.VAR] = 0;
         }
 
         /// <summary>
@@ -23,7 +32,18 @@ namespace JackCompiler
         /// </summary>
         void Define(string name, string type, SymbolKind kind)
         {
-
+            if(kind == SymbolKind.STATIC || kind == SymbolKind.FIELD)
+            {
+                int index = indices[kind];
+                classSymbols.Add(name, new Symbol(type, kind, index));
+                indices[kind] = index++;
+            }
+            else if(kind == SymbolKind.ARG || kind == SymbolKind.VAR)
+            {
+                int index = indices[kind];
+                subroutineSymbols.Add(name, new Symbol(type, kind, index));
+                indices[kind] = index++;
+            }
         }
 
         /// <summary>
@@ -32,7 +52,7 @@ namespace JackCompiler
         /// </summary>
         int VarCount(SymbolKind kind)
         {
-            return 0;
+            return indices[kind];
         }
 
         /// <summary>
@@ -41,6 +61,15 @@ namespace JackCompiler
         /// </summary>
         SymbolKind KindOf(string name)
         {
+            Symbol symbol;
+            if(classSymbols.TryGetValue(name, out symbol))
+            {
+                return symbol.Kind;
+            }
+            else if(subroutineSymbols.TryGetValue(name, out symbol))
+            {
+                return symbol.Kind;
+            }
             return SymbolKind.NONE;
         }
 
@@ -49,6 +78,15 @@ namespace JackCompiler
         /// </summary>
         string TypeOf(string name)
         {
+            Symbol symbol;
+            if(classSymbols.TryGetValue(name, out symbol))
+            {
+                return symbol.Type;
+            }
+            else if(subroutineSymbols.TryGetValue(name, out symbol))
+            {
+                return symbol.Type;
+            }
             return null;
         }
 
@@ -57,7 +95,16 @@ namespace JackCompiler
         /// </summary>
         int IndexOf(string name)
         {
-            return 0;
+            Symbol symbol;
+            if(classSymbols.TryGetValue(name, out symbol))
+            {
+                return symbol.Index;
+            }
+            else if(subroutineSymbols.TryGetValue(name, out symbol))
+            {
+                return symbol.Index;
+            }
+            return -1;
         }
     }
 }

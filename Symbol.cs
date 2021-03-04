@@ -9,7 +9,7 @@ namespace JackCompiler
         public SymbolKind Kind { get; private set; }
         public int Index { get; private set; }
 
-        Symbol(string type, SymbolKind kind, int index)
+        public Symbol(string type, SymbolKind kind, int index)
         {
             this.Type = type;
             this.Kind = kind;
