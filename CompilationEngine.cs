@@ -397,7 +397,12 @@ namespace JackCompiler
             while(IsOp(current.Symbol))
             {
                 //op
-                switch(current.Symbol)
+                char symbol = current.Symbol;
+                AppendSymbol(root);
+                //term
+                CompileTerm(root);
+                
+                switch(symbol)
                 {
                     case '+':
                         vmWriter.WriteArithmetic(Command.ADD);
@@ -427,9 +432,6 @@ namespace JackCompiler
                         vmWriter.WriteArithmetic(Command.OR);
                         break;
                 }
-                AppendSymbol(root);
-                //term
-                CompileTerm(root);
             }
         }
 
@@ -596,8 +598,6 @@ namespace JackCompiler
                 AppendSymbol(parent);
                 nArgs += CompileExpressionList(parent);
                 AppendSymbol(parent);
-                //pointer
-                vmWriter.WritePush(Segment.POINTER, 0);
                 //call
                 vmWriter.WriteCall(name, nArgs);
             }
@@ -606,11 +606,11 @@ namespace JackCompiler
             {
                 name = current.Identifier;
                 AppendIdentifier(parent);
+                //pointer
+                vmWriter.WritePush(Segment.POINTER, 0);
                 AppendSymbol(parent);
                 nArgs = CompileExpressionList(parent) + 1;
                 AppendSymbol(parent);
-                //pointer
-                vmWriter.WritePush(Segment.POINTER, 0);
                 //call
                 vmWriter.WriteCall(className + "." + name, nArgs);
             }
@@ -718,6 +718,8 @@ namespace JackCompiler
             catch(Exception e)
             {
                 Console.WriteLine(e.Message);
+                foreach(Token token in tokens)
+                    Console.WriteLine(token.ToString());
             }
         }
     }

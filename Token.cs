@@ -44,5 +44,24 @@ namespace JackCompiler
                 this.StringVal = identifierOrString;
             }
         }
+
+        public override string ToString()
+        {
+            switch(Type)
+            {
+                case TokenType.IDENTIFIER:
+                    return "IDENTIFIER: " + Identifier;
+                case TokenType.INT_CONST:
+                    return "INT: " + IntVal;
+                case TokenType.KEYWORD:
+                    return "KEYWORD: " + Keyword;
+                case TokenType.STRING_CONST:
+                    return "STRING: " + StringVal;
+                case TokenType.SYMBOL:
+                    return "SYMBOL: " + Symbol;
+                default:
+                    return Identifier;
+            }
+        }
     }
 }

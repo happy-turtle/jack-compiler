@@ -36,13 +36,13 @@ namespace JackCompiler
             {
                 int index = indices[kind];
                 classSymbols.Add(name, new Symbol(type, kind, index));
-                indices[kind] = index++;
+                indices[kind] = index + 1;
             }
             else if(kind == SymbolKind.ARG || kind == SymbolKind.VAR)
             {
                 int index = indices[kind];
                 subroutineSymbols.Add(name, new Symbol(type, kind, index));
-                indices[kind] = index++;
+                indices[kind] = index + 1;
             }
         }
 

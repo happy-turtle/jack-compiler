@@ -19,7 +19,10 @@ namespace JackCompiler
         const string symbolReg = "[\\&\\*\\+\\(\\)\\.\\/\\,\\-\\]\\;\\~\\}\\|\\{\\>\\=\\[\\<]";
         const string intReg = "[0-9]+";
         const string strReg = "\"[^\"\n]*\"";
-        const string idReg = "[\\w_]+";
+        // const string strReg = "(.*?)";
+        // const string idReg = "[\\w_]+";
+        const string idReg = "[a-zA-Z_]\\w*";
+        // const string idReg = @"([a-zA-Z_]\w*)";
         string keywordReg = "";
 
         /// <summary>
@@ -38,7 +41,8 @@ namespace JackCompiler
             keywordReg = "";
             foreach (var keyword in keywords)
                 keywordReg += keyword + "|";
-            string pattern = keywordReg + symbolReg + "|" + intReg + "|" + strReg + "|" + idReg;
+            // string pattern = keywordReg + symbolReg + "|" + intReg + "|" + strReg + "|" + idReg;
+            string pattern = idReg + "|" + keywordReg + symbolReg + "|" + intReg + "|" + strReg;
             keywordReg = @"\b(" + keywordReg.Remove(keywordReg.Length - 1) + @")\b";
 
             foreach(string line in lines)
@@ -78,14 +82,14 @@ namespace JackCompiler
         {
             if(Regex.IsMatch(tokens[currentToken], keywordReg))
                 return TokenType.KEYWORD;
-            else if(Regex.IsMatch(tokens[currentToken], symbolReg))
-                return TokenType.SYMBOL;
-            else if(Regex.IsMatch(tokens[currentToken], intReg))
-                return TokenType.INT_CONST;
             else if(Regex.IsMatch(tokens[currentToken], strReg))
                 return TokenType.STRING_CONST;
+            else if(Regex.IsMatch(tokens[currentToken], symbolReg))
+                return TokenType.SYMBOL;
             else if(Regex.IsMatch(tokens[currentToken], idReg))
                 return TokenType.IDENTIFIER;
+            else if(Regex.IsMatch(tokens[currentToken], intReg))
+                return TokenType.INT_CONST;
             else
                 throw new Exception("Unknown token");
         }
