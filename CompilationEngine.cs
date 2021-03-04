@@ -1,5 +1,4 @@
 using System;
-using System.Xml;
 using System.Collections.Generic;
 
 namespace JackCompiler
@@ -9,7 +8,6 @@ namespace JackCompiler
     /// </summary>
     class CompilationEngine
     {
-        XmlDocument document;
         List<Token> tokens;
         Token current;
         VMWriter vmWriter;
@@ -23,7 +21,6 @@ namespace JackCompiler
         /// </summary>
         public CompilationEngine(List<Token> tokenList, VMWriter writer)
         {
-            document = new XmlDocument();
             tokens = tokenList;
             current = tokens[0];
             vmWriter = writer;
@@ -36,58 +33,56 @@ namespace JackCompiler
         /// </summary>
         void CompileClass()
         {
-            XmlNode root = document.AppendChild(document.CreateNode(XmlNodeType.Element, "class", ""));
             //class
-            AppendKeyword(root);
+            Advance();
             //class name
             className = current.Identifier;
-            AppendIdentifier(root);
+            Advance();
             //'{'
-            AppendSymbol(root);
+            Advance();
             //classVarDec*
-            CompileClassVarDec(root);
+            CompileClassVarDec();
             //subroutineDec*
-            CompileSubroutineDec(root);
+            CompileSubroutineDec();
             //'}'
-            AppendSymbol(root);
+            Advance();
         }
 
         /// <summary>
         /// Compiles a static variable declaration or a field declaration.
         /// </summary>
-        void CompileClassVarDec(XmlNode parent)
+        void CompileClassVarDec()
         {
             while(current.Keyword == Keyword.STATIC || current.Keyword == Keyword.FIELD)
             {
-                XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "classVarDec", ""));
                 //'static'|'field'
                 SymbolKind kind;
                 if(current.Keyword == Keyword.STATIC)
                     kind = SymbolKind.STATIC;
                 else
                     kind = SymbolKind.FIELD;
-                AppendKeyword(root);
+                Advance();
                 //type
-                string type = CompileType(root);
+                string type = CompileType();
                 //varName
                 symbolTable.Define(current.Identifier, type, kind);
-                AppendIdentifier(root);
+                Advance();
                 //(, varName)*
                 while(current.Type == TokenType.SYMBOL && current.Symbol == ',')
                 {
-                    AppendSymbol(root);
+                    Advance();
                     symbolTable.Define(current.Identifier, type, kind);
-                    AppendIdentifier(root);
+                    Advance();
                 }
                 //';'
-                AppendSymbol(root);
+                Advance();
             }
         }
 
         /// <summary>
         /// Compiles a complete method, function or constructor.
         /// </summary>
-        void CompileSubroutineDec(XmlNode parent)
+        void CompileSubroutineDec()
         {            
             while(current.Keyword == Keyword.FUNCTION || current.Keyword == Keyword.METHOD ||
                 current.Keyword == Keyword.CONSTRUCTOR)
@@ -97,65 +92,62 @@ namespace JackCompiler
                 //first argument of a method is always this
                 if(current.Keyword == Keyword.METHOD)
                     symbolTable.Define("this",  className, SymbolKind.ARG);
-                XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "subroutineDec", ""));
                 //'constructor'|'function'|'method'
-                AppendKeyword(root);
+                Advance();
                 //'void|type'
                 string type;
                 if(current.Keyword == Keyword.VOID)
                 {
                     type = "void";
-                    AppendKeyword(root);
+                    Advance();
                 }
                 else
-                    type = CompileType(root);
+                    type = CompileType();
                 //subroutineName
                 string name = className + "." + current.Identifier;
-                AppendIdentifier(root);
+                Advance();
                 //'('parameterList')'
-                AppendSymbol(root);
-                CompileParameterList(root);
-                AppendSymbol(root);
+                Advance();
+                CompileParameterList();
+                Advance();
                 //subroutineBody
-                CompileSubroutineBody(root, keyword, name);
+                CompileSubroutineBody(keyword, name);
             }
         }
 
         /// <summary>
         /// Compiles a (possibly empty) parameter list. Does not handle the enclosing "()".
         /// </summary>
-        void CompileParameterList(XmlNode parent)
+        void CompileParameterList()
         {
-            XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "parameterList", ""));
             if(current.Type == TokenType.SYMBOL && current.Symbol == ')')
                 return;
             
             //type varName
-            string type = CompileType(root);
+            string type = CompileType();
             symbolTable.Define(current.Identifier, type, SymbolKind.ARG);
-            AppendIdentifier(root);
+            Advance();
 
             //(',' type varName)*
             while(current.Type == TokenType.SYMBOL && current.Symbol == ',')
             {
-                AppendSymbol(root);
-                type = CompileType(root);
+                Advance();
+                type = CompileType();
                 symbolTable.Define(current.Identifier, type, SymbolKind.ARG);
-                AppendIdentifier(root);
+                Advance();
             }
         }
 
         /// <summary>
         /// Compiles a subroutine's body.
         /// </summary>
-        void CompileSubroutineBody(XmlNode parent, Keyword keyword, string functionName)
+        void CompileSubroutineBody(Keyword keyword, string functionName)
         {
-            XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "subroutineBody", ""));
             //'{'
-            AppendSymbol(root);
+            Advance();
             //varDec*
             while(current.Keyword == Keyword.VAR)
-                CompileVarDec(root);
+                CompileVarDec();
             //VM function declaration
             vmWriter.WriteFunction(functionName, symbolTable.VarCount(SymbolKind.VAR));
             //METHOD and CONSTRUCTOR need to load this pointer
@@ -173,40 +165,38 @@ namespace JackCompiler
                 vmWriter.WritePop(Segment.POINTER, 0);
             }
             //statements
-            CompileStatements(root);
+            CompileStatements();
             //'}'
-            AppendSymbol(root);
+            Advance();
         }
 
         /// <summary>
         /// Compiles a var declaration.
         /// </summary>
-        void CompileVarDec(XmlNode parent)
+        void CompileVarDec()
         {
-            XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "varDec", ""));
             //var
-            AppendKeyword(root);
+            Advance();
             //type
-            string type = CompileType(root);
+            string type = CompileType();
             //varName (, varName)*
             symbolTable.Define(current.Identifier, type, SymbolKind.VAR);
-            AppendIdentifier(root);
+            Advance();
             while(current.Type == TokenType.SYMBOL && current.Symbol == ',')
             {
-                AppendSymbol(root);
+                Advance();
                 symbolTable.Define(current.Identifier, type, SymbolKind.VAR);
-                AppendIdentifier(root);
+                Advance();
             }
             //';'
-            AppendSymbol(root);
+            Advance();
         }
 
         /// <summary>
         /// Compiles a sequence of statements. Does not handle the enclosing "()".
         /// </summary>
-        void CompileStatements(XmlNode parent)
+        void CompileStatements()
         {
-            XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "statements", ""));
             while(current.Keyword == Keyword.LET ||
                 current.Keyword == Keyword.IF ||
                 current.Keyword == Keyword.WHILE ||
@@ -214,46 +204,45 @@ namespace JackCompiler
                 current.Keyword == Keyword.RETURN)
             {
                 if(current.Keyword == Keyword.LET)
-                    CompileLet(root);
+                    CompileLet();
                 else if(current.Keyword == Keyword.IF)
-                    CompileIf(root);
+                    CompileIf();
                 else if(current.Keyword == Keyword.WHILE)
-                    CompileWhile(root);
+                    CompileWhile();
                 else if(current.Keyword == Keyword.DO)
-                    CompileDo(root);
+                    CompileDo();
                 else if(current.Keyword == Keyword.RETURN)
-                    CompileReturn(root);
+                    CompileReturn();
             }
         }
 
         /// <summary>
         /// Compiles a let statement.
         /// </summary>
-        void CompileLet(XmlNode parent)
+        void CompileLet()
         {
             bool isArray = false;
-            XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "letStatement", ""));
             //'let'
-            AppendKeyword(root);
+            Advance();
             //varName
             string name = current.Identifier;
-            AppendIdentifier(root);
+            Advance();
             //'['expression']'
             if(current.Symbol == '[')
             {
                 isArray = true;
-                AppendSymbol(root);            
+                Advance();            
                 //push base address of array variable into stack
                 vmWriter.WritePush(symbolTable.SegmentOf(name),symbolTable.IndexOf(name));
-                CompileExpression(root);
-                AppendSymbol(root);
+                CompileExpression();
+                Advance();
                 //add offset to base
                 vmWriter.WriteArithmetic(Command.ADD);
             }
             //'='
-            AppendSymbol(root);
+            Advance();
             //expression
-            CompileExpression(root);
+            CompileExpression();
             if(isArray)
             {
                 //pop expression value to temp
@@ -270,45 +259,44 @@ namespace JackCompiler
                 vmWriter.WritePop(symbolTable.SegmentOf(name), symbolTable.IndexOf(name));                
             }
             //';'
-            AppendSymbol(root);
+            Advance();
         }
 
         /// <summary>
         /// Compiles an if statement, possibly with a trailing else clause.
         /// </summary>
-        void CompileIf(XmlNode parent)
+        void CompileIf()
         {
             string elseLabel = NewLabel("IF");
             string endLabel = NewLabel("IF");
 
-            XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "ifStatement", ""));
             //if
-            AppendKeyword(root);
+            Advance();
             //'('
-            AppendSymbol(root);
+            Advance();
             //expression
-            CompileExpression(root);
+            CompileExpression();
             //')'
-            AppendSymbol(root);
+            Advance();
             //if ~condition goto else
             vmWriter.WriteArithmetic(Command.NOT);
             vmWriter.WriteIf(elseLabel);
             //'{'
-            AppendSymbol(root);
+            Advance();
             //statements
-            CompileStatements(root);
+            CompileStatements();
             //'}'
-            AppendSymbol(root);
+            Advance();
             //if condition goto end
             vmWriter.WriteGoto(endLabel);
             //else'{'statements'}'
             vmWriter.WriteLabel(elseLabel);
             if(current.Keyword == Keyword.ELSE)
             {
-                AppendKeyword(root);
-                AppendSymbol(root);
-                CompileStatements(root);
-                AppendSymbol(root);
+                Advance();
+                Advance();
+                CompileStatements();
+                Advance();
             }            
             vmWriter.WriteLabel(endLabel);
         }
@@ -316,7 +304,7 @@ namespace JackCompiler
         /// <summary>
         /// Compiles a while statement.
         /// </summary>
-        void CompileWhile(XmlNode parent)
+        void CompileWhile()
         {
             string startLabel = NewLabel("WhileStart");
             string endLabel = NewLabel("WhileEnd");
@@ -324,24 +312,23 @@ namespace JackCompiler
             //start of the loop
             vmWriter.WriteLabel(startLabel);
 
-            XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "whileStatement", ""));
             //while
-            AppendKeyword(root);
+            Advance();
             //'('
-            AppendSymbol(root);
+            Advance();
             //expression
-            CompileExpression(root);
+            CompileExpression();
             //')'
-            AppendSymbol(root);
+            Advance();
             //if ~condition go to end
             vmWriter.WriteArithmetic(Command.NOT);
             vmWriter.WriteIf(endLabel);
             //'{'
-            AppendSymbol(root);
+            Advance();
             //statements
-            CompileStatements(root);
+            CompileStatements();
             //'}'
-            AppendSymbol(root);
+            Advance();
             //if condition go to start or continue
             vmWriter.WriteGoto(startLabel);
             vmWriter.WriteLabel(endLabel);
@@ -350,15 +337,14 @@ namespace JackCompiler
         /// <summary>
         /// Compiles an do statement.
         /// </summary>
-        void CompileDo(XmlNode parent)
+        void CompileDo()
         {
-            XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "doStatement", ""));
             //do
-            AppendKeyword(root);
+            Advance();
             //subroutineCall
-            CompileSubroutineCall(root);
+            CompileSubroutineCall();
             //';'
-            AppendSymbol(root);
+            Advance();
             //pop return value
             vmWriter.WritePop(Segment.TEMP, 0);
         }
@@ -366,41 +352,39 @@ namespace JackCompiler
         /// <summary>
         /// Compiles a return statement.
         /// </summary>
-        void CompileReturn(XmlNode parent)
+        void CompileReturn()
         {
-            XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "returnStatement", ""));
             //return
-            AppendKeyword(root);
+            Advance();
             //expression?
             if(!(current.Type == TokenType.SYMBOL && current.Symbol == ';'))
             {
-                CompileExpression(root);
+                CompileExpression();
             }
             else
             {
                 vmWriter.WritePush(Segment.CONST, 0);
             }
             //';'
-            AppendSymbol(root);
+            Advance();
             vmWriter.WriteReturn();
         }
 
         /// <summary>
         /// Compiles an expression.
         /// </summary>
-        void CompileExpression(XmlNode parent)
+        void CompileExpression()
         {
-            XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "expression", ""));
             //term
-            CompileTerm(root);
+            CompileTerm();
             //(op term)*
             while(IsOp(current.Symbol))
             {
                 //op
                 char symbol = current.Symbol;
-                AppendSymbol(root);
+                Advance();
                 //term
-                CompileTerm(root);
+                CompileTerm();
                 
                 switch(symbol)
                 {
@@ -441,14 +425,13 @@ namespace JackCompiler
         /// of '[', '(', or '.', suffices to distinguish between the possibilities. Any other token is not
         /// part of this term and should not be advanced over.
         /// </summary>
-        void CompileTerm(XmlNode parent)
+        void CompileTerm()
         {
-            XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "term", ""));
             //unaryOp Term
             if(current.Type == TokenType.SYMBOL && IsUnaryOp(current.Symbol))
             {
-                AppendSymbol(root);
-                CompileTerm(root);
+                Advance();
+                CompileTerm();
                 if(current.Symbol == '-')
                     vmWriter.WriteArithmetic(Command.NEG);
                 else
@@ -457,9 +440,9 @@ namespace JackCompiler
             //'('expression')'
             else if(current.Type == TokenType.SYMBOL && current.Symbol == '(')
             {
-                AppendSymbol(root);
-                CompileExpression(root);
-                AppendSymbol(root);
+                Advance();
+                CompileExpression();
+                Advance();
             }
             //keywordConstant
             else if(current.Type == TokenType.KEYWORD && 
@@ -482,13 +465,13 @@ namespace JackCompiler
                         vmWriter.WritePush(Segment.CONST, 0);
                         break;
                 }
-                AppendKeyword(root);
+                Advance();
             }
             //integerConstant
             else if(current.Type == TokenType.INT_CONST)
             {
                 vmWriter.WritePush(Segment.CONST, current.IntVal);
-                AppendIntVal(root);
+                Advance();
             }
             //stringConstant
             else if(current.Type == TokenType.STRING_CONST)
@@ -503,7 +486,7 @@ namespace JackCompiler
                     vmWriter.WritePush(Segment.CONST, (int)ch);
                     vmWriter.WriteCall("String.appendChar", 2); 
                 }
-                AppendStrVal(root);
+                Advance();
             }
             //identifier branch
             else if(current.Type == TokenType.IDENTIFIER)
@@ -517,13 +500,13 @@ namespace JackCompiler
                     //push base address of array variable into stack
                     vmWriter.WritePush(symbolTable.SegmentOf(name),symbolTable.IndexOf(name));
                     //varName
-                    AppendIdentifier(root);
+                    Advance();
                     //'['
-                    AppendSymbol(root);
+                    Advance();
                     //expression
-                    CompileExpression(root);
+                    CompileExpression();
                     //']'   
-                    AppendSymbol(root);
+                    Advance();
                     //base+offset
                     vmWriter.WriteArithmetic(Command.ADD);
                     //pop into 'that' pointer
@@ -534,13 +517,13 @@ namespace JackCompiler
                 //subroutineCall
                 else if(next.Type == TokenType.SYMBOL && (next.Symbol == '(' || next.Symbol == '.'))
                 {
-                    CompileSubroutineCall(root);
+                    CompileSubroutineCall();
                 }
                 //varName
                 else
                 {
                     vmWriter.WritePush(symbolTable.SegmentOf(name), symbolTable.IndexOf(name));
-                    AppendIdentifier(root);
+                    Advance();
                 }
             }
         }
@@ -548,26 +531,25 @@ namespace JackCompiler
         /// <summary>
         /// Compiles a (possibly empty) comma-separated list of expressions.
         /// </summary>
-        int CompileExpressionList(XmlNode parent)
+        int CompileExpressionList()
         {
             int nArgs = 0;
-            XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "expressionList", ""));
             if(current.Type == TokenType.SYMBOL && current.Symbol == ')')
                 return nArgs;
             //expression
             nArgs++;
-            CompileExpression(root);
+            CompileExpression();
             //(',' expression)*
             while(current.Type == TokenType.SYMBOL && current.Symbol == ',')
             {
                 nArgs++;
-                AppendSymbol(root);
-                CompileExpression(root);
+                Advance();
+                CompileExpression();
             }
             return nArgs;
         }
 
-        void CompileSubroutineCall(XmlNode parent)
+        void CompileSubroutineCall()
         {
             int nArgs = 0;
             string name;
@@ -578,8 +560,8 @@ namespace JackCompiler
             if(next.Type == TokenType.SYMBOL && next.Symbol == '.')
             {
                 name = current.Identifier;
-                AppendIdentifier(parent);
-                AppendSymbol(parent);
+                Advance();
+                Advance();
                 //subroutineName
                 string subroutineName = current.Identifier;
                 string type = symbolTable.TypeOf(name);
@@ -594,10 +576,10 @@ namespace JackCompiler
                     vmWriter.WritePush(symbolTable.SegmentOf(name), symbolTable.IndexOf(name));
                     name = symbolTable.TypeOf(name) + "." + subroutineName;
                 }
-                AppendIdentifier(parent);
-                AppendSymbol(parent);
-                nArgs += CompileExpressionList(parent);
-                AppendSymbol(parent);
+                Advance();
+                Advance();
+                nArgs += CompileExpressionList();
+                Advance();
                 //call
                 vmWriter.WriteCall(name, nArgs);
             }
@@ -605,71 +587,31 @@ namespace JackCompiler
             else
             {
                 name = current.Identifier;
-                AppendIdentifier(parent);
+                Advance();
                 //pointer
                 vmWriter.WritePush(Segment.POINTER, 0);
-                AppendSymbol(parent);
-                nArgs = CompileExpressionList(parent) + 1;
-                AppendSymbol(parent);
+                Advance();
+                nArgs = CompileExpressionList() + 1;
+                Advance();
                 //call
                 vmWriter.WriteCall(className + "." + name, nArgs);
             }
         }
 
-        string CompileType(XmlNode parent)
+        string CompileType()
         {
             string type;
             if(current.Type == TokenType.KEYWORD)
             {
                 type = Enum.GetName(typeof(Keyword), current.Keyword).ToLower();
-                AppendKeyword(parent);
+                Advance();
             }
             else
             {
                 type = current.Identifier;
-                AppendIdentifier(parent);
+                Advance();
             }
             return type;
-        }
-
-        void AppendKeyword(XmlNode parent)
-        {
-            XmlNode child = document.CreateNode(XmlNodeType.Element, "keyword", "");
-            child.InnerText = Enum.GetName(typeof(Keyword), current.Keyword).ToLower();
-            parent.AppendChild(child);
-            Advance();
-        }
-
-        void AppendSymbol(XmlNode parent)
-        {
-            XmlNode child = document.CreateNode(XmlNodeType.Element, "symbol", "");
-            child.InnerText = current.Symbol.ToString();
-            parent.AppendChild(child);
-            Advance();
-        }
-
-        void AppendIdentifier(XmlNode parent)
-        {
-            XmlNode child = document.CreateNode(XmlNodeType.Element, "identifier", "");
-            child.InnerText = current.Identifier;
-            parent.AppendChild(child);
-            Advance();
-        }
-
-        void AppendIntVal(XmlNode parent)
-        {
-            XmlNode child = document.CreateNode(XmlNodeType.Element, "integerConstant", "");
-            child.InnerText = current.IntVal.ToString();
-            parent.AppendChild(child);
-            Advance();
-        }
-
-        void AppendStrVal(XmlNode parent)
-        {
-            XmlNode child = document.CreateNode(XmlNodeType.Element, "stringConstant", "");
-            child.InnerText = current.StringVal;
-            parent.AppendChild(child);
-            Advance();
         }
 
         void Advance()
@@ -698,29 +640,6 @@ namespace JackCompiler
             string label = name + labelIndex;
             labelIndex++;
             return label;
-        }
-
-        /// <summary>
-        /// Save the document to a file and auto-indent the output.
-        /// </summary>
-        /// <param name="path">Complete file path without extension</param>
-        public void WriteXML(string path)
-        {
-            string xmlPath = path.Split('.')[0] + ".xml";
-            XmlWriterSettings settings = new XmlWriterSettings();
-            settings.OmitXmlDeclaration = true;
-            settings.Indent = true;
-            XmlWriter writer = XmlWriter.Create(xmlPath, settings);
-            try
-            {
-                document.Save(writer);
-            }
-            catch(Exception e)
-            {
-                Console.WriteLine(e.Message);
-                foreach(Token token in tokens)
-                    Console.WriteLine(token.ToString());
-            }
         }
     }
 }

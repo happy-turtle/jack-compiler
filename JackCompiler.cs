@@ -84,7 +84,6 @@ namespace JackCompiler
 
             VMWriter vmWriter = new VMWriter();
             CompilationEngine compilationEngine = new CompilationEngine(tokens, vmWriter);
-            compilationEngine.WriteXML(filePath);
             vmWriter.Close(filePath);
         }
 
