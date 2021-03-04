@@ -17,7 +17,7 @@ namespace JackCompiler
         /// <summary>
         /// Starts a new subroutine scope.
         /// </summary>
-        void StartSubroutine()
+        public void StartSubroutine()
         {
             subroutineSymbols = new Dictionary<string, Symbol>();
             indices[SymbolKind.ARG] = 0;
@@ -30,7 +30,7 @@ namespace JackCompiler
         /// have a class scope, while ARG and VAR identifiers have a
         /// subroutine scope.
         /// </summary>
-        void Define(string name, string type, SymbolKind kind)
+        public void Define(string name, string type, SymbolKind kind)
         {
             if(kind == SymbolKind.STATIC || kind == SymbolKind.FIELD)
             {
@@ -50,7 +50,7 @@ namespace JackCompiler
         /// Returns the number of variables of the given kind already
         /// defined in the current scope.
         /// </summary>
-        int VarCount(SymbolKind kind)
+        public int VarCount(SymbolKind kind)
         {
             return indices[kind];
         }
@@ -59,7 +59,7 @@ namespace JackCompiler
         /// Returns the kind of the named identifier in the current scope.
         /// If the identifier is unknown in the current scope return NONE.
         /// </summary>
-        SymbolKind KindOf(string name)
+        public SymbolKind KindOf(string name)
         {
             Symbol symbol;
             if(classSymbols.TryGetValue(name, out symbol))
@@ -74,9 +74,30 @@ namespace JackCompiler
         }
 
         /// <summary>
+        /// Returns the segment of the named identifier.
+        /// </summary>
+        public Segment SegmentOf(string name)
+        {
+            SymbolKind kind = KindOf(name);
+            switch(kind)
+            {
+                case SymbolKind.VAR:
+                    return Segment.LOCAL;
+                case SymbolKind.ARG:
+                    return Segment.ARG;
+                case SymbolKind.FIELD:
+                    return Segment.THIS;
+                case SymbolKind.STATIC:
+                    return Segment.STATIC;
+                default:
+                    return Segment.ARG;
+            }
+        }
+
+        /// <summary>
         /// Returns the type of the named identifier in the current scope.
         /// </summary>
-        string TypeOf(string name)
+        public string TypeOf(string name)
         {
             Symbol symbol;
             if(classSymbols.TryGetValue(name, out symbol))
@@ -93,7 +114,7 @@ namespace JackCompiler
         /// <summary>
         /// Returns the index assigned to the named identifier.
         /// </summary>
-        int IndexOf(string name)
+        public int IndexOf(string name)
         {
             Symbol symbol;
             if(classSymbols.TryGetValue(name, out symbol))

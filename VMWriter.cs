@@ -9,7 +9,7 @@ namespace JackCompiler
     enum Command { ADD, SUB, NEG, EQ, GT, LT, AND, OR, NOT };
 
     /// <summary>
-    /// Writes the virtual machine code to the output file.
+    /// Writes the virtual machine code.
     /// </summary>
     class VMWriter
     {
@@ -19,12 +19,22 @@ namespace JackCompiler
 
         public void WritePush(Segment segment, int index)
         {
-            vmCommands.Add("push " + Enum.GetName(typeof(Segment), segment).ToLower() + " " + index);
+            string seg = Enum.GetName(typeof(Segment), segment).ToLower();
+            if(seg == "const")
+                seg = "constant";
+            else if(seg == "arg")
+                seg = "argument";
+            vmCommands.Add("push " + seg + " " + index);
         }
 
         public void WritePop(Segment segment, int index)
         {
-            vmCommands.Add("pop " + Enum.GetName(typeof(Segment), segment).ToLower() + " " + index);
+            string seg = Enum.GetName(typeof(Segment), segment).ToLower();
+            if(seg == "const")
+                seg = "constant";
+            else if(seg == "arg")
+                seg = "argument";
+            vmCommands.Add("pop " + seg + " " + index);
         }
 
         public void WriteArithmetic(Command command)
@@ -34,7 +44,7 @@ namespace JackCompiler
 
         public void WriteLabel(string label)
         {
-            vmCommands.Add("(" + label + ")");
+            vmCommands.Add("label " + label);
         }
 
         public void WriteGoto(string label)

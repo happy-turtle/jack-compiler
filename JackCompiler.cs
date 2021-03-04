@@ -9,8 +9,8 @@ namespace JackCompiler
     /// Input: a single fileName.jack, or a directory containing 0 or more such files
     /// For each file, goes through the following logic:
     /// 1. Creates a JackTokenizer from fileName.jack
-    /// 2. Creates and uses a CompilationEngine and compiles the input JackTokenizer into XML structure.
-    /// 3. Creates an output file named fileName.xml and writes XML structure into this file.
+    /// 2. Creates and uses a CompilationEngine, a SymbolTable and a VMWriter and compiles the input JackTokenizer into VM code.
+    /// 3. Creates an output file named fileName.vm and writes the VM code into this file.
     /// </summary>
     class JackCompiler
     {
@@ -82,10 +82,10 @@ namespace JackCompiler
                 tokenizer.Advance();
             }
 
-            VMWriter writer = new VMWriter();
-            CompilationEngine compilationEngine = new CompilationEngine(tokens, writer);
+            VMWriter vmWriter = new VMWriter();
+            CompilationEngine compilationEngine = new CompilationEngine(tokens, vmWriter);
             compilationEngine.WriteXML(filePath);
-            writer.Close(filePath);
+            vmWriter.Close(filePath);
         }
 
         private static string[] StripComments(string[] lines)

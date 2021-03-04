@@ -39,7 +39,7 @@ namespace JackCompiler
             foreach (var keyword in keywords)
                 keywordReg += keyword + "|";
             string pattern = keywordReg + symbolReg + "|" + intReg + "|" + strReg + "|" + idReg;
-            keywordReg = keywordReg.Remove(keywordReg.Length - 1);
+            keywordReg = @"\b(" + keywordReg.Remove(keywordReg.Length - 1) + @")\b";
 
             foreach(string line in lines)
             {
@@ -76,15 +76,15 @@ namespace JackCompiler
         /// </summary>
         public TokenType GetTokenType()
         {
-            if(Regex.Match(tokens[currentToken], keywordReg).Success)
+            if(Regex.IsMatch(tokens[currentToken], keywordReg))
                 return TokenType.KEYWORD;
-            else if(Regex.Match(tokens[currentToken], symbolReg).Success)
+            else if(Regex.IsMatch(tokens[currentToken], symbolReg))
                 return TokenType.SYMBOL;
-            else if(Regex.Match(tokens[currentToken], intReg).Success)
+            else if(Regex.IsMatch(tokens[currentToken], intReg))
                 return TokenType.INT_CONST;
-            else if(Regex.Match(tokens[currentToken], strReg).Success)
+            else if(Regex.IsMatch(tokens[currentToken], strReg))
                 return TokenType.STRING_CONST;
-            else if(Regex.Match(tokens[currentToken], idReg).Success)
+            else if(Regex.IsMatch(tokens[currentToken], idReg))
                 return TokenType.IDENTIFIER;
             else
                 throw new Exception("Unknown token");

@@ -15,10 +15,5 @@ namespace JackCompiler
             this.Kind = kind;
             this.Index = index;
         }
-
-        public override string ToString()
-        {
-            return "Symbol(type=" + Type + "," + "kind=" + Kind + "," + "index=" + Index + ")";
-        }
     }
 }

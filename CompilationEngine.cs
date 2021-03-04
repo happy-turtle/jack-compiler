@@ -13,6 +13,9 @@ namespace JackCompiler
         List<Token> tokens;
         Token current;
         VMWriter vmWriter;
+        SymbolTable symbolTable;
+        string className;
+        int labelIndex = 0;
 
         /// <summary>
         /// Creates a new compilation engine with the given input and output.
@@ -24,6 +27,7 @@ namespace JackCompiler
             tokens = tokenList;
             current = tokens[0];
             vmWriter = writer;
+            symbolTable = new SymbolTable();
             CompileClass();
         }
 
@@ -36,6 +40,7 @@ namespace JackCompiler
             //class
             AppendKeyword(root);
             //class name
+            className = current.Identifier;
             AppendIdentifier(root);
             //'{'
             AppendSymbol(root);
@@ -56,15 +61,22 @@ namespace JackCompiler
             {
                 XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "classVarDec", ""));
                 //'static'|'field'
+                SymbolKind kind;
+                if(current.Keyword == Keyword.STATIC)
+                    kind = SymbolKind.STATIC;
+                else
+                    kind = SymbolKind.FIELD;
                 AppendKeyword(root);
                 //type
-                CompileType(root);
+                string type = CompileType(root);
                 //varName
+                symbolTable.Define(current.Identifier, type, kind);
                 AppendIdentifier(root);
                 //(, varName)*
                 while(current.Type == TokenType.SYMBOL && current.Symbol == ',')
                 {
                     AppendSymbol(root);
+                    symbolTable.Define(current.Identifier, type, kind);
                     AppendIdentifier(root);
                 }
                 //';'
@@ -80,22 +92,32 @@ namespace JackCompiler
             while(current.Keyword == Keyword.FUNCTION || current.Keyword == Keyword.METHOD ||
                 current.Keyword == Keyword.CONSTRUCTOR)
             {
+                symbolTable.StartSubroutine();
+                Keyword keyword = current.Keyword;
+                //first argument of a method is always this
+                if(current.Keyword == Keyword.METHOD)
+                    symbolTable.Define("this",  className, SymbolKind.ARG);
                 XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "subroutineDec", ""));
                 //'constructor'|'function'|'method'
                 AppendKeyword(root);
                 //'void|type'
+                string type;
                 if(current.Keyword == Keyword.VOID)
+                {
+                    type = "void";
                     AppendKeyword(root);
+                }
                 else
-                    CompileType(root);
+                    type = CompileType(root);
                 //subroutineName
+                string name = className + "." + current.Identifier;
                 AppendIdentifier(root);
                 //'('parameterList')'
                 AppendSymbol(root);
                 CompileParameterList(root);
                 AppendSymbol(root);
                 //subroutineBody
-                CompileSubroutineBody(root);
+                CompileSubroutineBody(root, keyword, name);
             }
         }
 
@@ -109,14 +131,16 @@ namespace JackCompiler
                 return;
             
             //type varName
-            CompileType(root);
+            string type = CompileType(root);
+            symbolTable.Define(current.Identifier, type, SymbolKind.ARG);
             AppendIdentifier(root);
 
             //(',' type varName)*
             while(current.Type == TokenType.SYMBOL && current.Symbol == ',')
             {
                 AppendSymbol(root);
-                CompileType(root);
+                type = CompileType(root);
+                symbolTable.Define(current.Identifier, type, SymbolKind.ARG);
                 AppendIdentifier(root);
             }
         }
@@ -124,7 +148,7 @@ namespace JackCompiler
         /// <summary>
         /// Compiles a subroutine's body.
         /// </summary>
-        void CompileSubroutineBody(XmlNode parent)
+        void CompileSubroutineBody(XmlNode parent, Keyword keyword, string functionName)
         {
             XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "subroutineBody", ""));
             //'{'
@@ -132,6 +156,22 @@ namespace JackCompiler
             //varDec*
             while(current.Keyword == Keyword.VAR)
                 CompileVarDec(root);
+            //VM function declaration
+            vmWriter.WriteFunction(functionName, symbolTable.VarCount(SymbolKind.VAR));
+            //METHOD and CONSTRUCTOR need to load this pointer
+            if (keyword == Keyword.METHOD)
+            {
+                //A Jack method with k arguments is compiled into a VM function that operates on k + 1 arguments.
+                //The first argument always refers to 'this'.
+                vmWriter.WritePush(Segment.ARG, 0);
+                vmWriter.WritePop(Segment.POINTER, 0);
+            }
+            else if (keyword == Keyword.CONSTRUCTOR){
+                //A Jack function or constructor with k arguments is compiled into a VM function that operates on k arguments.
+                vmWriter.WritePush(Segment.CONST, symbolTable.VarCount(SymbolKind.FIELD));
+                vmWriter.WriteCall("Memory.alloc", 1);
+                vmWriter.WritePop(Segment.POINTER, 0);
+            }
             //statements
             CompileStatements(root);
             //'}'
@@ -147,12 +187,14 @@ namespace JackCompiler
             //var
             AppendKeyword(root);
             //type
-            CompileType(root);
+            string type = CompileType(root);
             //varName (, varName)*
+            symbolTable.Define(current.Identifier, type, SymbolKind.VAR);
             AppendIdentifier(root);
             while(current.Type == TokenType.SYMBOL && current.Symbol == ',')
             {
                 AppendSymbol(root);
+                symbolTable.Define(current.Identifier, type, SymbolKind.VAR);
                 AppendIdentifier(root);
             }
             //';'
@@ -189,22 +231,44 @@ namespace JackCompiler
         /// </summary>
         void CompileLet(XmlNode parent)
         {
+            bool isArray = false;
             XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "letStatement", ""));
             //'let'
             AppendKeyword(root);
             //varName
+            string name = current.Identifier;
             AppendIdentifier(root);
             //'['expression']'
             if(current.Symbol == '[')
             {
-                AppendSymbol(root);
+                isArray = true;
+                AppendSymbol(root);            
+                //push base address of array variable into stack
+                vmWriter.WritePush(symbolTable.SegmentOf(name),symbolTable.IndexOf(name));
                 CompileExpression(root);
                 AppendSymbol(root);
+                //add offset to base
+                vmWriter.WriteArithmetic(Command.ADD);
             }
             //'='
             AppendSymbol(root);
             //expression
             CompileExpression(root);
+            if(isArray)
+            {
+                //pop expression value to temp
+                vmWriter.WritePop(Segment.TEMP, 0);
+                //pop base + index to that
+                vmWriter.WritePop(Segment.POINTER, 1);
+                //pop expression value to *(base + index)
+                vmWriter.WritePush(Segment.TEMP, 0);
+                vmWriter.WritePop(Segment.THAT, 0);
+            }   
+            else
+            {
+                //pop expression value
+                vmWriter.WritePop(symbolTable.SegmentOf(name), symbolTable.IndexOf(name));                
+            }
             //';'
             AppendSymbol(root);
         }
@@ -214,6 +278,9 @@ namespace JackCompiler
         /// </summary>
         void CompileIf(XmlNode parent)
         {
+            string elseLabel = NewLabel("IF");
+            string endLabel = NewLabel("IF");
+
             XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "ifStatement", ""));
             //if
             AppendKeyword(root);
@@ -223,13 +290,19 @@ namespace JackCompiler
             CompileExpression(root);
             //')'
             AppendSymbol(root);
+            //if ~condition goto else
+            vmWriter.WriteArithmetic(Command.NOT);
+            vmWriter.WriteIf(elseLabel);
             //'{'
             AppendSymbol(root);
             //statements
             CompileStatements(root);
             //'}'
             AppendSymbol(root);
+            //if condition goto end
+            vmWriter.WriteGoto(endLabel);
             //else'{'statements'}'
+            vmWriter.WriteLabel(elseLabel);
             if(current.Keyword == Keyword.ELSE)
             {
                 AppendKeyword(root);
@@ -237,6 +310,7 @@ namespace JackCompiler
                 CompileStatements(root);
                 AppendSymbol(root);
             }            
+            vmWriter.WriteLabel(endLabel);
         }
 
         /// <summary>
@@ -244,6 +318,12 @@ namespace JackCompiler
         /// </summary>
         void CompileWhile(XmlNode parent)
         {
+            string startLabel = NewLabel("WhileStart");
+            string endLabel = NewLabel("WhileEnd");
+
+            //start of the loop
+            vmWriter.WriteLabel(startLabel);
+
             XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "whileStatement", ""));
             //while
             AppendKeyword(root);
@@ -253,12 +333,18 @@ namespace JackCompiler
             CompileExpression(root);
             //')'
             AppendSymbol(root);
+            //if ~condition go to end
+            vmWriter.WriteArithmetic(Command.NOT);
+            vmWriter.WriteIf(endLabel);
             //'{'
             AppendSymbol(root);
             //statements
             CompileStatements(root);
             //'}'
             AppendSymbol(root);
+            //if condition go to start or continue
+            vmWriter.WriteGoto(startLabel);
+            vmWriter.WriteLabel(endLabel);
         }
 
         /// <summary>
@@ -273,6 +359,8 @@ namespace JackCompiler
             CompileSubroutineCall(root);
             //';'
             AppendSymbol(root);
+            //pop return value
+            vmWriter.WritePop(Segment.TEMP, 0);
         }
 
         /// <summary>
@@ -288,8 +376,13 @@ namespace JackCompiler
             {
                 CompileExpression(root);
             }
+            else
+            {
+                vmWriter.WritePush(Segment.CONST, 0);
+            }
             //';'
             AppendSymbol(root);
+            vmWriter.WriteReturn();
         }
 
         /// <summary>
@@ -304,6 +397,36 @@ namespace JackCompiler
             while(IsOp(current.Symbol))
             {
                 //op
+                switch(current.Symbol)
+                {
+                    case '+':
+                        vmWriter.WriteArithmetic(Command.ADD);
+                        break;
+                    case '-':
+                        vmWriter.WriteArithmetic(Command.SUB);
+                        break;
+                    case '*':
+                        vmWriter.WriteCall("Math.multiply", 2);
+                        break;
+                    case '/':
+                        vmWriter.WriteCall("Math.divide", 2);
+                        break;
+                    case '<':
+                        vmWriter.WriteArithmetic(Command.LT);
+                        break;
+                    case '>':
+                        vmWriter.WriteArithmetic(Command.GT);
+                        break;
+                    case '=':
+                        vmWriter.WriteArithmetic(Command.EQ);
+                        break;
+                    case '&':
+                        vmWriter.WriteArithmetic(Command.AND);
+                        break;
+                    case '|':
+                        vmWriter.WriteArithmetic(Command.OR);
+                        break;
+                }
                 AppendSymbol(root);
                 //term
                 CompileTerm(root);
@@ -324,7 +447,11 @@ namespace JackCompiler
             {
                 AppendSymbol(root);
                 CompileTerm(root);
-            }
+                if(current.Symbol == '-')
+                    vmWriter.WriteArithmetic(Command.NEG);
+                else
+                    vmWriter.WriteArithmetic(Command.NOT);
+            }   
             //'('expression')'
             else if(current.Type == TokenType.SYMBOL && current.Symbol == '(')
             {
@@ -336,35 +463,71 @@ namespace JackCompiler
             else if(current.Type == TokenType.KEYWORD && 
             (current.Keyword == Keyword.THIS || current.Keyword == Keyword.NULL ||
             current.Keyword == Keyword.TRUE || current.Keyword == Keyword.FALSE))
-            {
+            {                
+                switch(current.Keyword)
+                {
+                    case Keyword.THIS:
+                        vmWriter.WritePush(Segment.POINTER, 0);
+                        break;
+                    case Keyword.NULL:
+                        vmWriter.WritePush(Segment.CONST, 0);                        
+                        break;
+                    case Keyword.TRUE:
+                        vmWriter.WritePush(Segment.CONST, 0); 
+                        vmWriter.WriteArithmetic(Command.NOT); //~0 = -1
+                        break;
+                    case Keyword.FALSE:
+                        vmWriter.WritePush(Segment.CONST, 0);
+                        break;
+                }
                 AppendKeyword(root);
             }
             //integerConstant
             else if(current.Type == TokenType.INT_CONST)
             {
+                vmWriter.WritePush(Segment.CONST, current.IntVal);
                 AppendIntVal(root);
             }
             //stringConstant
             else if(current.Type == TokenType.STRING_CONST)
             {
+                string str = current.StringVal;
+                //new string
+                vmWriter.WritePush(Segment.CONST, str.Length);
+                vmWriter.WriteCall("String.new", 1);
+                //append each char
+                foreach(char ch in str.ToCharArray())
+                {
+                    vmWriter.WritePush(Segment.CONST, (int)ch);
+                    vmWriter.WriteCall("String.appendChar", 2); 
+                }
                 AppendStrVal(root);
             }
             //identifier branch
             else if(current.Type == TokenType.IDENTIFIER)
             {
+                string name = current.Identifier;
                 //look ahead
                 Token next = tokens[tokens.IndexOf(current) + 1];
                 //array
                 if(next.Type == TokenType.SYMBOL && next.Symbol == '[')
                 {
+                    //push base address of array variable into stack
+                    vmWriter.WritePush(symbolTable.SegmentOf(name),symbolTable.IndexOf(name));
                     //varName
                     AppendIdentifier(root);
                     //'['
                     AppendSymbol(root);
                     //expression
                     CompileExpression(root);
-                    //']'
+                    //']'   
                     AppendSymbol(root);
+                    //base+offset
+                    vmWriter.WriteArithmetic(Command.ADD);
+                    //pop into 'that' pointer
+                    vmWriter.WritePop(Segment.POINTER,1);
+                    //push *(base+index) onto stack
+                    vmWriter.WritePush(Segment.THAT,0);
                 }
                 //subroutineCall
                 else if(next.Type == TokenType.SYMBOL && (next.Symbol == '(' || next.Symbol == '.'))
@@ -374,6 +537,7 @@ namespace JackCompiler
                 //varName
                 else
                 {
+                    vmWriter.WritePush(symbolTable.SegmentOf(name), symbolTable.IndexOf(name));
                     AppendIdentifier(root);
                 }
             }
@@ -382,52 +546,90 @@ namespace JackCompiler
         /// <summary>
         /// Compiles a (possibly empty) comma-separated list of expressions.
         /// </summary>
-        void CompileExpressionList(XmlNode parent)
+        int CompileExpressionList(XmlNode parent)
         {
+            int nArgs = 0;
             XmlNode root = parent.AppendChild(document.CreateNode(XmlNodeType.Element, "expressionList", ""));
             if(current.Type == TokenType.SYMBOL && current.Symbol == ')')
-                return;
+                return nArgs;
             //expression
+            nArgs++;
             CompileExpression(root);
             //(',' expression)*
             while(current.Type == TokenType.SYMBOL && current.Symbol == ',')
             {
+                nArgs++;
                 AppendSymbol(root);
                 CompileExpression(root);
             }
+            return nArgs;
         }
 
         void CompileSubroutineCall(XmlNode parent)
         {
+            int nArgs = 0;
+            string name;
             //look ahead
             Token next = tokens[tokens.IndexOf(current) + 1];
 
             //(className|varName).subroutineName'('expressionList')'
             if(next.Type == TokenType.SYMBOL && next.Symbol == '.')
             {
+                name = current.Identifier;
                 AppendIdentifier(parent);
                 AppendSymbol(parent);
+                //subroutineName
+                string subroutineName = current.Identifier;
+                string type = symbolTable.TypeOf(name);
+                if(string.IsNullOrEmpty(type))
+                {
+                    name = name + "." + subroutineName;
+                }
+                else
+                {
+                    nArgs = 1;
+                    //push variable onto stack
+                    vmWriter.WritePush(symbolTable.SegmentOf(name), symbolTable.IndexOf(name));
+                    name = symbolTable.TypeOf(name) + "." + subroutineName;
+                }
                 AppendIdentifier(parent);
                 AppendSymbol(parent);
-                CompileExpressionList(parent);
+                nArgs += CompileExpressionList(parent);
                 AppendSymbol(parent);
+                //pointer
+                vmWriter.WritePush(Segment.POINTER, 0);
+                //call
+                vmWriter.WriteCall(name, nArgs);
             }
             //subroutineName'('expressionList')'
             else
             {
+                name = current.Identifier;
                 AppendIdentifier(parent);
                 AppendSymbol(parent);
-                CompileExpressionList(parent);
+                nArgs = CompileExpressionList(parent) + 1;
                 AppendSymbol(parent);
+                //pointer
+                vmWriter.WritePush(Segment.POINTER, 0);
+                //call
+                vmWriter.WriteCall(className + "." + name, nArgs);
             }
         }
 
-        void CompileType(XmlNode parent)
+        string CompileType(XmlNode parent)
         {
+            string type;
             if(current.Type == TokenType.KEYWORD)
+            {
+                type = Enum.GetName(typeof(Keyword), current.Keyword).ToLower();
                 AppendKeyword(parent);
+            }
             else
+            {
+                type = current.Identifier;
                 AppendIdentifier(parent);
+            }
+            return type;
         }
 
         void AppendKeyword(XmlNode parent)
@@ -489,6 +691,13 @@ namespace JackCompiler
             if(symbol == '-' || symbol == '~')
                 return true;
             return false;
+        }
+
+        string NewLabel(string name)
+        {
+            string label = name + labelIndex;
+            labelIndex++;
+            return label;
         }
 
         /// <summary>
